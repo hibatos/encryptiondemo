@@ -1,0 +1,522 @@
+<html>
+
+<head>
+    <script>
+        class constructorTree {
+            constructor(data, current) {
+                this.data = data;
+                this.subnodes = [];
+                this.current = current;
+            }
+            
+            serialize(spacerWidth, spacer) {
+                let subnodesAggregate = "";
+                for (let i = 0; i < this.subnodes.length; i++) {
+                    if (typeof this.subnodes[i] == 'string') {
+                        subnodesAggregate += spacer.repeat(spacerWidth) + this.subnodes[i] + "\n";
+                    } else {
+                        subnodesAggregate += this.subnodes[i].serialize(spacerWidth + 1, spacer)
+                    }
+                }
+                return (spacer.repeat(spacerWidth) +
+                this.data.open + "\n\t" +
+                subnodesAggregate +
+                spacer.repeat(spacerWidth) +
+                this.data.close + "\n")
+            }
+            open(object) {
+                if (this.current) {
+                    this.subnodes.push(object);
+                    if (typeof object !== 'string') {
+                        this.current = false;
+                        console.log("pushed node and made incurrent")
+                    }
+                    console.log("pushed node")
+                    return 0;
+                } else {
+                    for (let i = 0; i < this.subnodes.length; i++) {
+                        if (typeof this.subnodes[i] !== 'string') {
+                            if (this.subnodes[i].open(object) == 0) {
+                                return 0;
+                            }
+                        }
+                    }
+                    return -1;
+                }
+            }
+            close() {
+                
+                if (this.current) {
+                    this.current = false;
+                    return 1;
+                } else {
+                    for (let i = 0; i < this.subnodes.length; i++) {
+                        if (typeof this.subnodes[i] !== 'string') {
+                            let ret = this.subnodes[i].close();
+                            if (ret == 1) {
+                                this.current = true;
+                                return 0;
+                            } else if (ret == 0) {
+                                return 0;
+                            }
+                        }
+                    }
+                    return -1;
+                }
+            }
+            setProp(prop){
+                if (this.current) {
+                    let t = this.data.open;
+                    this.data.open = t.slice(0, t.length-1)+ " " + prop + t.slice(t.length-1)
+                    return 0;
+                } else {
+                    for (let i = 0; i < this.subnodes.length; i++) {
+                        if (typeof this.subnodes[i] !== 'string') {
+                            let ret = this.subnodes[i].setProp(prop);
+                            if (ret == 0) {
+                                return 0;
+                            } else if (ret == -1) {
+                                return -1;
+                            }
+                        }
+                    }
+                    return -1;
+                }
+            }
+        }
+        class htmlOutputBuilder {
+            constructor() {
+                this.tree = {};
+            }
+            open(tag) {
+                if (Object.keys(this.tree).length === 0) {
+                    this.tree = new constructorTree(tag, true)
+                } else {
+                    this.tree.open(new constructorTree(tag, true));
+                }
+                return 0;
+            }
+            close() {
+                if (Object.keys(this.tree).length === 0) {
+                    return -1;
+                } else {
+                    this.tree.close();
+                    return 0;
+                }
+            }
+            write(string) {
+                if (Object.keys(this.tree).length === 0) {
+                    console.log("could not write data.")
+                    return -1;
+                } else {
+                    console.log("write value " + String(this.tree.open(string)));
+                }
+                return 0;
+            }
+            setProp(prop,value){
+                if (Object.keys(this.tree).length === 0) {
+                    console.log("Could not write data. Build tree empty.")
+                    return -1;
+                } else {
+                    let propval = prop + "=\"" + value + "\""
+                    console.log("setProp \"" + propval + "\" returned "+ String(this.tree.setProp(propval)));
+                }
+                return 0;
+            }
+            serialize() {
+                return Object.keys(this.tree).length === 0 ? "" : this.tree.serialize(0, "\t");
+            }
+        };
+        function onLoad(){
+            return
+        }
+        function generateColorPicker(){
+            colorSettings = document.getElementById("color-settings");
+            colors = [
+                {
+                    label:"Umrandung",
+                    propname:"--border-contrast-color"
+                },{
+                    label:"Kontrast",
+                    propname:"--solid-contrast-color"
+                },{
+                    label:"Kontrasttext",
+                    propname:"--text-contrast-color"
+                },{
+                    label:"Text",
+                    propname:"--text-color"
+                },{
+                    label:"Eingabefeld",
+                    propname:"--input-background-color"
+                },{
+                    label:"Aufgabefeld",
+                    propname:"--output-background-color"
+                },{
+                    label:"Abschitt",
+                    propname:"--section-color"
+                },{
+                    label:"Unterabschnitt",
+                    propname:"--sub-section-color"
+                }
+            ]
+            colorSettings.innerHTML = colorSettingsGenerator(colors);
+        }
+        function colorSettingsGenerator(colors){
+            hb = new htmlOutputBuilder();
+            tags = {
+                pickerContainer: {
+                    open: "<div class=\"color-picker-container\">",
+                    close: "</div>"
+                },
+                picker: {
+                    open: "<div class=\"color-picker\" onclick=\"handleColorSelection(this.id)\">",
+                    close: "</div>"
+                }
+            }
+
+            hb.open(tags.pickerContainer);
+            for (let i = 0; i < colors.length; i++) {
+                hb.open(tags.picker)
+                hb.setProp("id", colors[i].propname);
+                hb.write(colors[i].label);
+                hb.close();
+            }
+            console.log(hb);
+            hb.close();
+            return hb.serialize();
+        }
+
+        function htmlTableGenerator(array, enableBorders, classes, headers, styling) {
+            hb = new htmlOutputBuilder();
+            tags = {
+                table: {
+                    open: "<div class=\"table\">",
+                    close: "</div>"
+                },
+                tableRow: {
+                    open: "<div class=\"table-row\">",
+                    close: "</div>"
+                },
+                tableHeader: {
+                    open: "<div class=\"table-header\">",
+                    close: "</div>"
+                },
+                tableData: {
+                    open: "<div class=\"table-data\">",
+                    close: "</div>"
+                }
+            }
+            
+            hb.open(tags.table);
+            for (let i = 0; i < array.length; i++) {
+                hb.open(tags.tableRow)
+                for (let j = 0; j < array[i].length; j++) {
+                    if (headers && !i) hb.open(tags.tableHeader)
+                    else hb.open(tags.tableData)
+                    hb.write(String(array[i][j]));
+                    hb.close();
+                }
+                hb.close();
+            }
+            hb.close();
+            return hb.serialize();
+        }
+
+        function handleColorSelection(id){
+            alert(id)
+        }
+        function caesarDecoder() {
+            document.getElementById("out").innerHTML = caesar(document.getElementById("caesarInput").value);
+        }
+        function caesar(encoded) {
+            out = [["Verschoben um # Zeichen", "Entstandene Zeichenfolge"]
+
+            ]
+            chararray = encoded.split("");
+            isUpper = false;
+
+            for (j = 0; j < 26; j++) {
+                tempchar = "";
+                for (i = 0; i < chararray.length; i++) {
+                    newchar = chararray[i].toLowerCase().charCodeAt(0);
+                    isUpper = (chararray[i] == chararray[i].toUpperCase());
+                    if (newchar == 32 || newchar == 44 || newchar == 46) {
+
+                    } else {
+
+                        newchar += j;
+                        if (newchar > 122) {
+                            newchar -= 122 - 96;
+                        }
+                    }
+                    tempchar += isUpper ? String.fromCharCode(newchar).toUpperCase() : String.fromCharCode(newchar);
+                }
+                out.push([j, tempchar])
+            }
+            return (htmlTableGenerator(out, false, "testclass", true, "width: 100%; font-family: monospace;"))
+        }
+        function vigenereDecoder() {
+            document.getElementById("out").innerHTML = vigenereKeyed(document.getElementById("vigenereInput").value, document.getElementById("vigenereKey").value,false);
+        }
+        function vigenereEncoder() {
+            document.getElementById("out").innerHTML = vigenereKeyed(document.getElementById("vigenereInput").value, document.getElementById("vigenereKey").value,true);
+        }
+        function vigenereKeyed(encoded,key,encode){
+
+            out = [["Verschlüsselter Absatz", "Entschlüsselter Absatz"]
+
+            ]
+            key = key.toLowerCase()
+            linearray = encoded.split("\n");
+            isUpper = false;
+            currentKeyPosition = 0;
+            for (j = 0; j < linearray.length; j++) {
+                templine = ""
+                chararray = linearray[j].split("");
+                for (i = 0; i < chararray.length; i++) {
+                    newchar = chararray[i].toLowerCase().charCodeAt(0);
+                    isUpper = (chararray[i] == chararray[i].toUpperCase());
+                    if (newchar == 32 || newchar == 44 || newchar == 46) {
+
+                    } else if (encode){
+
+                        newchar -= key.charCodeAt(currentKeyPosition%key.length)-97;
+                        currentKeyPosition++;
+                        if (newchar < 97) {
+                            newchar += 122 - 96;
+                        }
+                    }
+                    else {
+                        newchar += key.charCodeAt(currentKeyPosition%key.length)-97;
+                        currentKeyPosition++;
+                        if (newchar > 122) {
+                            newchar -= 122 - 96;
+                        }
+                    }
+                    templine += isUpper ? String.fromCharCode(newchar).toUpperCase() : String.fromCharCode(newchar);
+                }
+                
+                if(encode) out.push([templine, linearray[j]])
+                else out.push([linearray[j], templine])
+            }
+            return (htmlTableGenerator(out, false, "testclass", true, "width: 100%; font-family: monospace;"))
+        }
+
+
+            //alert("a".charCodeAt(0)) // 97
+            //alert("z".charCodeAt(0)) // 122
+
+    </script>
+    <style>
+        :root{
+            --border-contrast-color: rgb(53, 63, 204);
+            --solid-contrast-color: rgb(41, 97, 170);
+            --text-contrast-color: rgb(74, 139, 223);
+            --text-color: rgb(231, 231, 231);
+            --input-background-color: rgb(120, 120, 120);
+            --output-background-color: rgb(83, 83, 83);
+            --section-color: rgb(100,100,100);
+            --sub-section-color: rgb(80,80,80);
+            --universal-margin: 10px;
+            --universal-padding: 15px;
+        }
+        body {
+            background-color: rgb(31, 31, 31);
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+
+        }
+
+        #main-container {
+            display: grid;
+            grid-template-columns: 50% 50%;
+            grid-auto-rows: auto;
+        }
+
+        .caesar {
+            display: grid;
+        }
+
+        .vigenere {
+            display: grid;
+        }
+
+        .textinput-container {
+            height: auto;
+            margin: var(--universal-margin);
+            font-size: 1.2em;
+        }
+
+        .textinput {
+            width: 100%;
+            font-size: larger;
+            resize: vertical;
+            height: 100px;
+            border-radius: 10px;
+            background-color: var(--input-background-color);
+            padding: var(--universal-padding);
+            color: var(--text-color);
+        }
+
+        .button {
+            background-color: rgb(48, 48, 48);
+            border-radius: 10px;
+            text-align: center;
+            padding: var(--universal-padding);
+            margin: var(--universal-margin);
+            color: rgb(211, 211, 211);
+            max-height: 20px;
+        }
+
+        textarea{
+            border-style: solid;
+            border-color: var(--border-contrast-color);
+            overflow: auto;
+        }
+
+        .button:hover {
+            background-color: var(--solid-contrast-color);
+            cursor: pointer;
+        }
+
+        .output {
+            color: rgb(163, 163, 163);
+            margin: var(--universal-margin);
+            background-color: var(--output-background-color);
+            padding: var(--universal-padding);
+            font-size : 1.2em;
+            border-radius: 10px;
+        }
+        table tr:nth-child(even) {
+            background: #1b1b1b77
+        }
+        .table .table-row:nth-child(even) {
+            background: #1b1b1b77
+        }
+        .table .table-row .table-header {
+            color: var(--text-contrast-color);
+            font-weight: bold;
+            text-align: center;
+        }
+        .table .table-row .table-data {
+            color: var(--text-color);
+            text-align: center;
+        }
+        .table .table-row {
+            display: grid;
+            grid-auto-columns: auto;
+            grid-auto-flow: column;
+            grid-auto-columns: minmax(0, 1fr);
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .output td{
+            font-size : 1.5em;
+            color:rgb(211, 211, 211);
+        }
+        .output th{
+            font-size : 1.6em;
+            color: var(--text-contrast-color);
+        }
+        .header {
+            color: var(--text-contrast-color);
+            text-align: center;
+            font-weight: bold;
+        }
+        .button-group{
+            display: grid;
+            grid-template-columns: 50% 50%;
+        }
+        a{
+            color: var(--text-contrast-color);
+            margin: var(--universal-margin);
+        }
+        .settings .settings-container{
+            background-color: var(--section-color);
+            border-radius: 10px;
+            padding: var(--universal-padding);
+            margin: var(--universal-margin);
+            display: grid;
+            grid-auto-columns: auto;
+            grid-auto-rows: 100%;
+        }
+        .settings .settings-container .setting{
+            border-radius: 10px;
+            padding: var(--universal-padding);
+            margin: var(--universal-margin);
+            background-color: var(--sub-section-color);
+            display: grid;
+            grid-template-columns: 10% auto;
+            align-items: center;
+        }
+        .color-picker-container{
+            border-radius: 10px;
+            margin: var(--universal-margin);
+            display: grid;
+            grid-auto-columns: auto;
+            grid-template-rows: 100%;
+            grid-auto-flow: column;
+        }
+        .color-picker{
+            border-radius: 10px;
+            margin: 0px var(--universal-margin);
+            padding: var(--universal-padding);
+            background-color: red;
+            align-items: center;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            height: 30px;
+        }
+    </style>
+</head>
+
+<body onload="onLoad()">
+    <div id="main-container">
+        <div class="caesar">
+            <center>
+                <h1 class="header">Caesar Decoder</h1>
+            </center>
+            <div class="textinput-container">
+                <p class="header">
+                    Eingabe
+                </p>
+                <textarea type="text" spellcheck="false" id="caesarInput" style="height:265px;" placeholder="Hier den Text zum knacken eingeben:" name="input"
+                    class="textinput"></textarea>
+            </div>
+            <div onclick="caesarDecoder()" class="button">Entschlüsseln</div>
+        </div>
+
+        <div class="vigenere">
+            <center>
+                <h1 class="header">Vigenere Decoder</h1>
+            </center>
+            <div class="textinput-container">
+                <p class="header">
+                    Eingabe
+                </p>
+                <textarea type="text" spellcheck="false" id="vigenereInput" placeholder="Hier den Text eingeben:"
+                    name="input" class="textinput"></textarea>
+                <p class="header">
+                    Schlüssel
+                </p>
+                <textarea type="text" spellcheck="false" id="vigenereKey" placeholder="Hier den Schlüssel eingeben:"
+                name="input" class="textinput"></textarea>
+            </div>
+            <div class="button-group">
+                <div onclick="vigenereEncoder()" class="button">Verschlüsseln</div>
+                <div onclick="vigenereDecoder()" class="button">Entschlüsseln</div>
+            </div>
+
+        </div>
+    </div>
+
+    <p class="header">Ausgabe</p>
+    <div id="out" class="output"></div>
+    <br /><br />
+    <div style="color:grey; text-align: right;">
+        Copyright Moritz Becker 2022, unter der <a href="https://creativecommons.org/licenses/by/3.0/de/">Creative
+            Commons BY 3.0 DE Lizenz</a>
+    </div>
+</body>
+
+</html>
